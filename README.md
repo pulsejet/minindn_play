@@ -7,9 +7,17 @@ GUI server for MiniNDN and Mininet. This is a web application that allows you to
 In your MiniNDN directory, clone this repository and install the dependencies:
 
 ```bash
+# Clone the repository
 git clone https://github.com/pulsejet/minindn_play
 cd minindn_play
+
+# Install the dependencies
 sudo pip install -r requirements.txt
+
+# Get the NDN packet dissector (only if you're using Tshark features)
+wget https://raw.githubusercontent.com/named-data/ndn-tools/master/tools/dissect-wireshark/ndn.lua
+
+cd ..
 ```
 
 ## Features

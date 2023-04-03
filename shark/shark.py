@@ -31,7 +31,7 @@ class SharkExecutor:
         return '{}{}-interfaces.pcap'.format('./', name)
 
     def _get_lua(self):
-        luafile = str(Path(__file__).parent.absolute()) + '/ndn.lua'
+        luafile = str(Path(__file__).parent.parent.absolute()) + '/ndn.lua'
         return 'lua_script:' + luafile
 
     def _get_ip_map(self):
