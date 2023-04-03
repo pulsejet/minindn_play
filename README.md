@@ -24,6 +24,8 @@ sudo pip install -r requirements.txt
 
 ## Usage
 
+A full example for MiniNDN can be found in [example.py](example.py).
+
 To start the server, add the following to your Mininet script. This will print the URL of the server. If running remotely, you must make sure to forward the port 8765 to the local machine where the browser is running (this port is used by the websocket server).
 
 ```python
