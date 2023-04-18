@@ -24,8 +24,7 @@ class TopoExecutor:
                 nodes.append(self._node_dict(station))
 
         for link in self.net.links:
-            obj = self._link_dict(link)
-            if obj:
+            if obj := self._link_dict(link):
                 links.append(obj)
 
         return {
