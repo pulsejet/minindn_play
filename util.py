@@ -35,7 +35,7 @@ def run_popen_readline(node, cmd):
     """Helper to run command on node asynchronously and get output line by line"""
     process = getPopen(node, cmd, stdout=subprocess.PIPE)
     while True:
-        line = process.stdout.readline()
+        line: bytes = process.stdout.readline()
         if not line:
             break
         yield line

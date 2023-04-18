@@ -1,10 +1,11 @@
 import msgpack
+import ipaddress
 
 from pathlib import Path
 from threading import Thread
 
 from mininet.net import Mininet
-from mininet.log import error
+from mininet.log import error, info
 from ..socket import PlaySocket
 from ..consts import Config, WSFunctions, WSKeys
 from .. import util
@@ -18,6 +19,8 @@ SHARK_FIELDS = [
     "ndn.name",
     "ip.src",
     "ip.dst",
+    "ipv6.src",
+    "ipv6.dst",
     # "ndn.bin", # binary data
 ]
 SHARK_FIELDS_STR = " -Tfields -e " + " -e ".join(SHARK_FIELDS) + " -Y ndn.len"
@@ -26,6 +29,7 @@ class SharkExecutor:
     def __init__(self, net: Mininet, socket: PlaySocket):
         self.net = net
         self.socket = socket
+        self._ip_map = None
 
     def _get_pcap_file(self, name):
         return '{}{}-interfaces.pcap'.format('./', name)
@@ -34,20 +38,42 @@ class SharkExecutor:
         luafile = str(Path(__file__).parent.parent.absolute()) + '/ndn.lua'
         return 'lua_script:' + luafile
 
-    def _get_ip_map(self):
-        """Get IP address map for all links in net"""
-        addresses = {}
-        def addIntf(intf):
-            if isinstance(intf, str):
-                # TODO: maybe "wifiAdhoc"; what then?
-                return
-            addresses[intf.ip] = intf.node.name
+    def _convert_to_full_ip_address(self, ip_address: str):
+        try:
+            ip_obj = ipaddress.ip_address(ip_address)
+        except ValueError:
+            return ip_address
 
-        for link in self.net.links:
-            addIntf(link.intf1)
-            addIntf(link.intf2)
+        if isinstance(ip_obj, ipaddress.IPv6Address):
+            return str(ip_obj)
+        else:
+            return ip_address
 
-        return addresses
+    def _get_hostname_from_ip(self, ip):
+        """
+        Get the hostname of a node given its IP address.
+        node: the node to check on (e.g. for local addresses)
+        This function runs once and caches the result, since we need to visit
+        each node to get its list of IP addresses.
+        """
+        if self._ip_map is None:
+            # Map of IP address to hostname
+            self._ip_map = {}
+
+            # Extract all addresses including localhost
+            cmd = "ip addr show | grep -E 'inet' | awk '{print $2}' | cut -d '/' -f1"
+
+            hosts = self.net.hosts
+            hosts += getattr(self.net, 'stations', []) # mininet-wifi
+            for host in hosts:
+                for ip in host.cmd(cmd).splitlines():
+                    if full_ip := self._convert_to_full_ip_address(ip):
+                        self._ip_map[full_ip] = host.name
+            info('Created IP map for PCAP (will be cached): {}\n'.format(self._ip_map))
+
+        if full_ip := self._convert_to_full_ip_address(ip):
+            return self._ip_map.get(full_ip, ip)
+        return ip
 
     def _send_pcap_chunks(self, nodeId: str, known_frame: int, include_wire: bool):
         """
@@ -75,9 +101,6 @@ class SharkExecutor:
         # Pipe editcap to tshark
         piped_cmd = ['bash', '-c', '{} | {}'.format(editcap_cmd, list_cmd)]
 
-        # Map for source and destination nodes
-        ip_map = self._get_ip_map()
-
         # Collected packets (one chunk)
         packets = []
 
@@ -97,20 +120,25 @@ class SharkExecutor:
 
         # Iterate each line of output
         for line in util.run_popen_readline(node, piped_cmd):
-            line = line.decode('utf-8').strip().split()
+            parts: list[str] = line.decode('utf-8').strip('\n').split('\t')
 
-            if len(line) < 6:
+            if len(parts) < 8:
+                error('Invalid line in pcap: {}\n'.format(parts))
                 continue
 
+            is_ipv6 = parts[7] != '' and parts[8] != ''
+            from_ip = parts[7] if is_ipv6 else parts[5]
+            to_ip = parts[8] if is_ipv6 else parts[6]
+
             packets.append([
-                int(line[0]) + known_frame - 1, # frame number
-                float(line[1]) * 1000, # timestamp
-                int(line[2]), # length
-                line[3], # type
-                line[4], # NDN name
-                ip_map.get(line[5], line[5]), # from
-                ip_map.get(line[6], line[6]), # to
-                bytes.fromhex(line[7]) if include_wire else 0, # packet content
+                int(parts[0]) + known_frame - 1, # frame number
+                float(parts[1]) * 1000, # timestamp
+                int(parts[2]), # length
+                str(parts[3]), # type
+                str(parts[4]), # NDN name
+                str(self._get_hostname_from_ip(from_ip)), # from
+                str(self._get_hostname_from_ip(to_ip)), # to
+                bytes.fromhex(parts[9]) if include_wire else 0, # packet content
             ])
 
             if len(packets) >= Config.PCAP_CHUNK_SIZE:
