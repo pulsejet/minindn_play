@@ -9,16 +9,18 @@ class TopoExecutor:
     async def get_topo(self):
         """UI Function: Get topology"""
         nodes = []
+        nodeIds = set()
         links = []
 
         for host in self.net.hosts:
             nodes.append(self._node_dict(host))
+            nodeIds.add(host.name)
 
         for switch in self.net.switches:
             nodes.append(self._node_dict(switch, switch=True))
 
-        if hasattr(self.net, 'stations'):
-            for station in getattr(self.net, 'stations'):
+        for station in getattr(self.net, 'stations', []):
+            if station.name not in nodeIds:
                 nodes.append(self._node_dict(station))
 
         for link in self.net.links:
