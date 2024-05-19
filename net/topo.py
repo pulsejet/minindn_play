@@ -35,7 +35,6 @@ class TopoExecutor:
     async def add_link(self, a, b, id, opts):
         """UI Function: Add link"""
         link = self.net.addLink(self.net[a], self.net[b], **self._conv_link_opts(opts))
-        self.net.configHosts()
         info('Added link {}\n'.format(link))
         return {
             'id': id,
@@ -48,7 +47,6 @@ class TopoExecutor:
         link = self._get_link(a, b, mnId)
         if link:
             self.net.delLink(link)
-            self.net.configHosts()
             return True
 
         error('No link found to remove for {}\n'.format(mnId))
@@ -72,7 +70,6 @@ class TopoExecutor:
     async def add_node(self, id, label):
         """UI Function: Add node (host is added)"""
         self.net.addHost(label)
-        self.net.configHosts()
         return {
             'id': id,
             'label': label,
@@ -81,7 +78,6 @@ class TopoExecutor:
     async def del_node(self, id):
         """UI Function: Delete node"""
         self.net.delNode(self.net[id])
-        self.net.configHosts()
         info('Removed node {}\n'.format(id))
         return True
 
