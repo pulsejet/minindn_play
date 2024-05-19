@@ -149,8 +149,8 @@ class TopoExecutor:
     def _conv_link_opts(self, opts: dict):
         """Helper: convert link options"""
         params = {}
-        if 'latency' in opts and opts['latency'] is not None:
-            params['delay'] = str(opts['latency']) + 'ms'
-        if 'loss' in opts and opts['loss'] is not None:
+        if 'latency' in opts and opts['latency'] is not None and int(opts['latency']) >= 0:
+            params['delay'] = str(int(opts['latency'])) + 'ms'
+        if 'loss' in opts and opts['loss'] is not None and float(opts['loss']) >= 0:
             params['loss'] = float(opts['loss'])
         return params
