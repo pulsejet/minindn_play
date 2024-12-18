@@ -1,3 +1,4 @@
+import signal
 from threading import Thread
 from .monitor import LogMonitor
 from .socket import PlaySocket
@@ -43,11 +44,19 @@ class PlayServer:
 
         # Blocks until Mininet CLI is closed
         if self.cli:
+            self.hook_sigint()
             self.pty_executor.start_cli()
 
         # Stop all monitors
         for monitor in self.monitors:
             monitor.stop()
+
+    def hook_sigint(self):
+        def signal_handler(sig, frame):
+            print('SIGINT received, stopping Mininet...')
+            self.net.stop()
+            exit(127)
+        signal.signal(signal.SIGINT, signal_handler)
 
     def add_monitor(self, monitor: LogMonitor):
         self.monitors.append(monitor)
