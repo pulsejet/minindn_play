@@ -24,22 +24,24 @@ class PlaySocket:
 
         self._set_auth_token()
         self.loop = asyncio.new_event_loop()
-        Thread(target=self._run, args=(), daemon=True).start()
+        Thread(target=self.loop.run_forever, args=(), daemon=True).start()
+        self.loop.call_soon_threadsafe(self.loop.create_task, self._run())
 
     def add_executor(self, executor):
         self.executors.append(executor)
 
     def send(self, websocket, msg):
         """Send message to UI threadsafe"""
-        if websocket.open:
+        if websocket.state == websockets.protocol.State.OPEN:
             self.loop.call_soon_threadsafe(self.loop.create_task, websocket.send(msg))
 
     def send_all(self, msg):
         """Send message to all UI threadsafe"""
-        for websocket in self.conn_list:
+        for websocket in self.conn_list.copy():
             try:
                 self.send(websocket, msg)
-            except:
+            except Exception as err:
+                error('Failed to send to {} with error {}\n'.format(websocket.remote_address, err))
                 del self.conn_list[websocket]
 
     def _set_auth_token(self):
@@ -56,7 +58,7 @@ class PlaySocket:
             with open(Config.AUTH_FILE, 'w') as f:
                 f.write(self.AUTH_TOKEN)
 
-    def _run(self) -> None:
+    async def _run(self) -> None:
         """Runs in separate thread from main"""
 
         # Show the URL to the user
@@ -67,14 +69,15 @@ class PlaySocket:
 
         # Start server
         asyncio.set_event_loop(self.loop)
-        start_server = websockets.serve(self._serve, Config.SERVER_HOST, Config.SERVER_PORT)
-        self.loop.run_until_complete(start_server)
-        self.loop.run_forever()
 
-    async def _serve(self, websocket, path):
+        server = await websockets.serve(self._serve, Config.SERVER_HOST, Config.SERVER_PORT)
+        await server.serve_forever()
+
+    async def _serve(self, websocket):
         """Handle websocket connection"""
 
         try:
+            path = websocket.request.path
             auth = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)['auth'][0]
             if auth != self.AUTH_TOKEN:
                 raise Exception("Invalid auth token")

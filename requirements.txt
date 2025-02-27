@@ -1,2 +1,2 @@
-websockets
-msgpack
+websockets==15.0
+msgpack==1.1.0
