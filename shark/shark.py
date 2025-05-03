@@ -26,22 +26,29 @@ SHARK_FIELDS = [
 SHARK_FIELDS_STR = " -Tfields -e " + " -e ".join(SHARK_FIELDS) + " -Y ndn.len"
 
 class SharkExecutor:
+    _ip_map: dict = None
+    _lua_script: str = None
+
     def __init__(self, net: Mininet, socket: PlaySocket):
         self.net = net
         self.socket = socket
-        self._ip_map = None
 
     def _get_pcap_file(self, name):
         return '{}{}-interfaces.pcap'.format('./', name)
 
     def _get_lua(self):
+        if self._lua_script is not None:
+            return self._lua_script
+
         luafile = str(Path(__file__).parent.parent.absolute()) + '/ndn.lua'
         if Path(luafile).exists():
-            return 'lua_script:' + luafile
+            self._lua_script = 'lua_script:' + luafile
+            return self._lua_script
 
         luafile = '/usr/local/share/ndn-dissect-wireshark/ndn.lua'
         if Path(luafile).exists():
-            return 'lua_script:' + luafile
+            self._lua_script = 'lua_script:' + luafile
+            return self._lua_script
 
         raise RuntimeError('NDN Wireshark dissector not found (ndn-tools/ndn.lua)')
 
