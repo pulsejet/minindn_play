@@ -36,7 +36,14 @@ class SharkExecutor:
 
     def _get_lua(self):
         luafile = str(Path(__file__).parent.parent.absolute()) + '/ndn.lua'
-        return 'lua_script:' + luafile
+        if Path(luafile).exists():
+            return 'lua_script:' + luafile
+
+        luafile = '/usr/local/share/ndn-dissect-wireshark/ndn.lua'
+        if Path(luafile).exists():
+            return 'lua_script:' + luafile
+
+        raise RuntimeError('NDN Wireshark dissector not found (ndn-tools/ndn.lua)')
 
     def _convert_to_full_ip_address(self, ip_address: str):
         try:
